@@ -8,6 +8,10 @@ import * as ion from 'ion-js';
 /**
  * Represents the {{ model.name | upper_camel }} structure.
  * Generated from '{{ model.name }}' type definition.
+ * DEBUG: Model Exists: {% if model is defined %}Yes{% else %}No{% endif %} <--- Check if 'model' is defined
+ * DEBUG: Model is Object: {% if model is object %}Yes{% else %}No{% endif %} <--- Check if 'model' is an object
+ * DEBUG: Model Source Exists: {% if model.source is defined %}Yes{% else %}No{% endif %} <--- Check if 'model.source' is defined (again, but differently)
+ * DEBUG: Model Value (JSON Stringify): {{ model | json_encode() }} <--- Try to print the whole model as JSON
  */
 {%- if model.code_gen_type.structure is defined %}
 export interface {{ model.name | upper_camel }} {

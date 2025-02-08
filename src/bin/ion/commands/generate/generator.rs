@@ -592,6 +592,14 @@ impl<L: Language + 'static> CodeGenerator<'_, L> {
         // Render or generate file for the template with the given context
         let template: &Template = &data_model_node.try_into()?;
 
+        // Debug prints AFTER template creation
+        let template_name_str = L::template_name(template);
+        println!("render_generated_code: Rendering template: {}", template_name_str);
+        println!("render_generated_code: Context keys BEFORE rendering {}: {:?}", template_name_str, &context.clone().into_json().as_object().unwrap().keys().collect::<Vec<_>>());
+        if let Some(model_value) = context.get("model") {
+            println!("render_generated_code: Model Value BEFORE rendering {}: {:?}", template_name_str, model_value);
+        }
+
         // This will be used by Java templates. Since `java` templates use recursion(i.e. use the same template for nested types) when rendering nested types,
         // We need to tune the `is_nested` flag to allow static classes being added inside a parent class
         context.insert("is_nested", &false);
