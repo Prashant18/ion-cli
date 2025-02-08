@@ -245,6 +245,90 @@ impl Display for JavaLanguage {
     }
 }
 
+// src/bin/ion/commands/generate/utils/typescript_language.r
+
+pub struct TypeScriptLanguage;
+
+impl Language for TypeScriptLanguage {
+    fn name() -> String {
+        "typescript".to_string()
+    }
+
+    fn file_extension() -> String {
+        "ts".to_string()
+    }
+
+    fn file_name_for_type(name: &str) -> String {
+        name.to_case(Case::UpperCamel)
+    }
+
+    fn target_type(ion_schema_type: &IonSchemaType) -> Option<String> {
+        match ion_schema_type {
+            IonSchemaType::String | IonSchemaType::Symbol | IonSchemaType::Clob => Some("string".to_string()),
+            IonSchemaType::Int | IonSchemaType::Float => Some("number".to_string()),
+            IonSchemaType::Bool => Some("boolean".to_string()),
+            IonSchemaType::Blob => Some("Uint8Array".to_string()),
+            IonSchemaType::List | IonSchemaType::SExp => Some("Array<any>".to_string()),
+            IonSchemaType::Struct => Some("object".to_string()),
+            IonSchemaType::SchemaDefined(name) => Some(name.clone()),
+        }
+    }
+
+    fn target_type_as_sequence(
+        target_type: FullyQualifiedTypeReference,
+    ) -> FullyQualifiedTypeReference {
+        FullyQualifiedTypeReference {
+            type_name: vec![NamespaceNode::Type("Array".to_string())],
+            parameters: vec![target_type],
+        }
+    }
+
+    fn is_built_in_type(type_name: String) -> bool {
+        ["string", "number", "boolean", "Uint8Array", "Array", "null", "Decimal", "Timestamp", "object", "any"].contains(&type_name.as_str())
+    }
+
+    fn fully_qualified_type_ref(name: &FullyQualifiedTypeReference) -> String {
+        name.type_name.iter().map(|n| n.name()).join(".")
+    }
+
+    fn template_name(template: &Template) -> String {
+        match template {
+            Template::Struct => "class".to_string(),
+            Template::Scalar => "scalar".to_string(),
+            Template::Sequence => "sequence".to_string(),
+            Template::Enum => "enum".to_string(),
+        }
+    }
+
+    fn namespace_separator() -> &'static str {
+        "."
+    }
+
+    fn add_type_to_namespace(is_nested_type: bool, type_name: &str, current_namespace: &mut Vec<NamespaceNode>) {
+        if !is_nested_type {
+            current_namespace.clear();
+        }
+        current_namespace.push(NamespaceNode::Package(type_name.to_string()));
+        current_namespace.push(NamespaceNode::Type(type_name.to_string()));
+    }
+
+    fn reset_namespace(current_namespace: &mut Vec<NamespaceNode>) {
+        if current_namespace.len() >= 2 {
+            current_namespace.pop();
+            current_namespace.pop();
+        }
+    }
+
+    fn target_type_as_optional(
+        target_type: FullyQualifiedTypeReference,
+    ) -> FullyQualifiedTypeReference {
+        FullyQualifiedTypeReference {
+            type_name: vec![NamespaceNode::Type("Option".to_string())],
+            parameters: vec![target_type],
+        }
+    }
+}
+
 pub struct RustLanguage;
 
 impl Language for RustLanguage {

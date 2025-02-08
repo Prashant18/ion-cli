@@ -9,7 +9,7 @@ use crate::commands::generate::result::{
 };
 use crate::commands::generate::templates;
 use crate::commands::generate::utils::{IonSchemaType, Template};
-use crate::commands::generate::utils::{JavaLanguage, Language, RustLanguage};
+use crate::commands::generate::utils::{JavaLanguage, Language, RustLanguage, TypeScriptLanguage};
 use convert_case::{Case, Casing};
 use ion_rs::Value;
 use ion_schema::isl::isl_constraint::{IslConstraint, IslConstraintValue};
@@ -98,6 +98,29 @@ impl<'a> CodeGenerator<'a, JavaLanguage> {
         Self {
             output,
             current_type_fully_qualified_name: namespace,
+            tera,
+            phantom: PhantomData,
+            data_model_store: HashMap::new(),
+        }
+    }
+}
+
+impl<'a> CodeGenerator<'a, TypeScriptLanguage> {
+    pub fn new(output: &'a Path) -> CodeGenerator<'a, TypeScriptLanguage> {
+        let mut tera = Tera::default();
+        // Add all templates using typescript_templates module constants
+        tera.add_raw_templates(vec![
+            ("class.templ", templates::typescript::CLASS),
+            ("scalar.templ", templates::typescript::SCALAR),
+            ("sequence.templ", templates::typescript::SEQUENCE),
+            ("enum.templ", templates::typescript::ENUM),
+            ("nested_type.templ", templates::typescript::NESTED_TYPE),
+        ])
+        .unwrap();
+
+        Self {
+            output,
+            current_type_fully_qualified_name: vec![],
             tera,
             phantom: PhantomData,
             data_model_store: HashMap::new(),
@@ -389,8 +412,8 @@ impl<L: Language + 'static> CodeGenerator<'_, L> {
                     invalid_abstract_data_type_raw_error(
                         "Can not determine fully qualified name for the data model",
                     ),
-                )?,
-            )),
+                )?),
+            ),
             FieldPresence::Required => data_model_node.fully_qualified_type_ref::<L>().ok_or(
                 invalid_abstract_data_type_raw_error(
                     "Can not determine fully qualified name for the data model",

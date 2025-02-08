@@ -1,0 +1,108 @@
+{%- if model.code_gen_type.structure is defined %}
+import * as ion from 'ion-js';
+
+/**
+ * Represents the nested {{ model.name | upper_camel }} structure.
+ * Generated as a nested type within '{{ namespace | last }}' from '{{ model.name }}' type definition.
+ */
+export interface {{ model.name | upper_camel }} {
+    {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+    /**
+     * {{ field_name }} field ({{ field_ref.0 | fully_qualified_type_name }}).
+     */
+    {{ field_name | camel }}{% if field_ref.1.is_optional %}?{% endif %}: {{ field_ref.0 | fully_qualified_type_name }};
+    {%- endfor %}
+}
+
+export namespace {{ model.name | upper_camel }} {
+     /**
+     * Reads a {{ model.name | upper_camel }} struct from the provided IonReader.
+     * @param reader The IonReader to read from.
+     * @returns A {{ model.name | upper_camel }} object.
+     * @throws Error if the reader is not positioned on a struct or if field types are incorrect.
+     */
+    export function readFrom(reader: ion.IonReader): {{ model.name | upper_camel }} {
+        reader.next();
+        if (reader.type() !== ion.IonTypes.STRUCT) {
+            throw new Error(`Expected Struct for {{ model.name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+        }
+        const structValue: any = {}; // Use 'any' temporarily
+        reader.stepIn();
+        while (reader.next() !== ion.IonTypes.NONE) {
+            const fieldName = reader.fieldName();
+            switch (fieldName) {
+                {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+                case '{{ field_name | upper_camel }}': // or '{{ field_name | camel }}': // Handle both cases if needed
+                case '{{ field_name | camel }}':
+                    {%- set field_type_name = field_ref.0 | fully_qualified_type_name %}
+                    {%- if field_type_name == "string" %}
+                    if (reader.type() !== ion.IonTypes.STRING) {
+                        throw new Error(`Expected String for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.stringValue();
+                    {%- elif field_type_name == "number" %}
+                    if (reader.type() !== ion.IonTypes.INT) {
+                        throw new Error(`Expected Int for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.numberValue();
+                    {%- elif field_type_name == "boolean" %}
+                    if (reader.type() !== ion.IonTypes.BOOL) {
+                        throw new Error(`Expected Bool for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.booleanValue();
+                    {%- elif field_type_name == "number[]" %} // Assuming number[] represents list of numbers for now
+                    const listValue: number[] = [];
+                    reader.stepIn();
+                    while (reader.next() !== ion.IonTypes.NONE) {
+                        if (reader.type() !== ion.IonTypes.INT) {
+                            throw new Error(`Expected Int element for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                        }
+                        listValue.push(reader.numberValue());
+                    }
+                    reader.stepOut();
+                    structValue.{{ field_name | camel }} = listValue;
+                    {%- else -%}
+                    // Assuming nested struct type, generalize based on type store lookup later
+                    {{ field_ref.0 | fully_qualified_type_name }}.writeTo(reader, structValue.{{ field_name | camel }});
+                    {%- endif -%}
+                    break;
+                {%- endfor %}
+                default:
+                    reader.skipValue(); // Skip unknown fields
+            }
+        }
+        reader.stepOut();
+        return structValue as {{ model.name | upper_camel }}; // Type assertion
+    }
+
+    /**
+     * Writes the given {{ model.name | upper_camel }} struct to the provided IonWriter.
+     * @param writer The IonWriter to write to.
+     * @param structValue The {{ model.name | upper_camel }} object to write.
+     */
+    export function writeTo(writer: ion.IonWriter, structValue: {{ model.name | upper_camel }}): void {
+        writer.stepIn(ion.IonTypes.STRUCT);
+        {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+        writer.writeFieldName('{{ field_name | camel }}');
+        {%- set field_type_name = field_ref.0 | fully_qualified_type_name %}
+        {%- if field_type_name == "string" %}
+        writer.writeString(structValue.{{ field_name | camel }});
+        {%- elif field_type_name == "number" %}
+        writer.writeInt(structValue.{{ field_name | camel }});
+        {%- elif field_type_name == "boolean" %}
+        writer.writeBool(structValue.{{ field_name | camel }});
+        {%- elif field_type_name == "number[]" %} // Assuming number[] represents list of numbers for now
+        writer.stepIn(ion.IonTypes.LIST);
+        for (const element of structValue.{{ field_name | camel }}) {
+            writer.writeInt(element);
+        }
+        writer.stepOut();
+        {%- else -%}
+        // Assuming nested struct type, generalize based on type store lookup later
+        {{ field_ref.0 | fully_qualified_type_name }}.writeTo(writer, structValue.{{ field_name | camel }});
+        {%- endif -%}
+        {%- endfor %}
+        writer.stepOut();
+    }
+}
+{%- endif %}

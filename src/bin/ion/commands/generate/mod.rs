@@ -8,7 +8,7 @@ mod model;
 
 use crate::commands::generate::generator::CodeGenerator;
 use crate::commands::generate::model::NamespaceNode;
-use crate::commands::generate::utils::{JavaLanguage, RustLanguage};
+use crate::commands::generate::utils::{JavaLanguage, RustLanguage, TypeScriptLanguage};
 use crate::commands::IonCliCommand;
 use anyhow::{bail, Result};
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint};
@@ -58,7 +58,7 @@ impl IonCliCommand for GenerateCommand {
                     .long("language")
                     .short('l')
                     .required(true)
-                    .value_parser(["java", "rust"])
+                    .value_parser(["java", "rust", "typescript"])
                     .help("Programming language for the generated code"),
             )
             .arg(
@@ -121,6 +121,11 @@ impl IonCliCommand for GenerateCommand {
                 Self::print_rust_code_gen_warnings();
                 CodeGenerator::<RustLanguage>::new(output)
                     .generate_code_for_authorities(&authorities, &mut schema_system)?
+            },
+            "typescript" => { //  <--- ADD THIS BLOCK
+                let mut generator: CodeGenerator<TypeScriptLanguage> =
+                    CodeGenerator::<TypeScriptLanguage>::new(output); // For TS, namespace might not be used initially, or adapt as needed
+                generator.generate_code_for_authorities(&authorities, &mut schema_system)?;
             }
             _ => bail!(
                 "Programming language '{}' is not yet supported. Currently supported targets: 'java', 'rust'",

@@ -1,0 +1,59 @@
+{%- set namespace_vec = namespace %}
+{%- if namespace_vec|length > 0 %}
+module {{ namespace_vec.0 }} {
+{%- endif %}
+
+import * as ion from 'ion-js';
+
+/**
+ * Represents the {{ model.name | upper_camel }} type.
+ * Generated from '{{ model.name }}' type definition.
+ */
+{%- if model.code_gen_type.sequence is defined %}
+/**
+ * Represents a sequence of {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }} values ({{ model.code_gen_type.sequence.sequence_type | upper_camel }}).
+ */
+export type {{ model.name | upper_camel }} = {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}[];
+
+export namespace {{ model.name | upper_camel }} {
+    /**
+     * Reads a {{ model.name | upper_camel }} sequence from the provided IonReader.
+     * @param reader The IonReader to read from.
+     * @returns A {{ model.name | upper_camel }} array.
+     * @throws Error if the reader is not positioned on a list or if elements are of incorrect type.
+     */
+    export function readFrom(reader: ion.IonReader): {{ model.name | upper_camel }} {
+        reader.next();
+        if (reader.type() !== ion.IonTypes.LIST) { // Assuming 'list' sequence type
+            throw new Error(`Expected List for {{ model.name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+        }
+        const sequenceValue: {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}[] = [];
+        reader.stepIn();
+        while (reader.next() !== ion.IonTypes.NONE) {
+            sequenceValue.push({{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}.readFrom(reader));
+        }
+        reader.stepOut();
+        return sequenceValue;
+    }
+
+    /**
+     * Writes the given {{ model.name | upper_camel }} sequence to the provided IonWriter.
+     * @param writer The IonWriter to write to.
+     * @param sequenceValue The {{ model.name | upper_camel }} array to write.
+     */
+    export function writeTo(writer: ion.IonWriter, sequenceValue: {{ model.name | upper_camel }}): void {
+        writer.stepIn(ion.IonTypes.LIST); // Assuming 'list' sequence type
+        for (const element of sequenceValue) {
+            {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}.writeTo(writer, element);
+        }
+        writer.stepOut();
+    }
+}
+{%- else %}
+// Not a sequence type
+export type {{ model.name | upper_camel }} = any;
+{%- endif %}
+
+{%- if namespace_vec|length > 0 %}
+} // end module {{ namespace_vec.0 }}
+{%- endif %}

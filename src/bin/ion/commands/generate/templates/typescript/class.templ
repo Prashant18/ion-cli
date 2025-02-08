@@ -1,0 +1,160 @@
+{%- set namespace_vec = namespace %}
+{%- if namespace_vec|length > 0 %}
+module {{ namespace_vec.0 }} {
+{%- endif %}
+
+import * as ion from 'ion-js';
+
+/**
+ * Represents the {{ model.name | upper_camel }} structure.
+ * Generated from '{{ model.name }}' type definition.
+ */
+{%- if model.code_gen_type.structure is defined %}
+export interface {{ model.name | upper_camel }} {
+    {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+    /**
+     * {{ field_name }} field ({{ field_ref.0 | fully_qualified_type_name }}).
+     */
+    {{ field_name | camel }}{% if field_ref.1.is_optional %}?{% endif %}: {{ field_ref.0 | fully_qualified_type_name }};
+    {%- endfor %}
+}
+{%- elif model.code_gen_type.sequence is defined %}
+export type {{ model.name | upper_camel }} = {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}[];
+{%- elif model.code_gen_type.scalar is defined %}
+export type {{ model.name | upper_camel }} = {{ model.code_gen_type.scalar | fully_qualified_type_name }};
+{%- else %}
+// Unknown type
+export type {{ model.name | upper_camel }} = any;
+{%- endif %}
+
+export namespace {{ model.name | upper_camel }} {
+    /**
+     * Reads a {{ model.name | upper_camel }} from the provided IonReader.
+     * @param reader The IonReader to read from.
+     * @returns A {{ model.name | upper_camel }} object.
+     * @throws Error if the reader is not positioned on the correct type or if field types are incorrect.
+     */
+    export function readFrom(reader: ion.IonReader): {{ model.name | upper_camel }} {
+        reader.next();
+        {%- if model.code_gen_type.structure is defined %}
+        if (reader.type() !== ion.IonTypes.STRUCT) {
+            throw new Error(`Expected Struct for {{ model.name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+        }
+        const structValue: any = {}; // Use 'any' during construction, cast later
+        reader.stepIn();
+        while (reader.next() !== ion.IonTypes.NONE) {
+            const fieldName = reader.fieldName();
+            switch (fieldName) {
+                {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+                case '{{ field_name | upper_camel }}': // or '{{ field_name | camel }}': // Handle both cases if needed
+                case '{{ field_name | camel }}':
+                    {%- set field_type_name = field_ref.0 | fully_qualified_type_name %}
+                    {%- if field_type_name == "string" %}
+                    if (reader.type() !== ion.IonTypes.STRING) {
+                        throw new Error(`Expected String for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.stringValue();
+                    {%- elif field_type_name == "number" %}
+                    if (reader.type() !== ion.IonTypes.INT) {
+                        throw new Error(`Expected Int for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.numberValue();
+                    {%- elif field_type_name == "boolean" %}
+                    if (reader.type() !== ion.IonTypes.BOOL) {
+                        throw new Error(`Expected Bool for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                    }
+                    structValue.{{ field_name | camel }} = reader.booleanValue();
+                    {%- elif field_type_name == "number[]" %} // Assuming number[] represents list of numbers for now
+                    const listValue: number[] = [];
+                    reader.stepIn();
+                    while (reader.next() !== ion.IonTypes.NONE) {
+                        if (reader.type() !== ion.IonTypes.INT) {
+                            throw new Error(`Expected Int element for {{ model.name | upper_camel }}.{{ field_name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+                        }
+                        listValue.push(reader.numberValue());
+                    }
+                    reader.stepOut();
+                    structValue.{{ field_name | camel }} = listValue;
+                    {%- else -%}
+                    // Assuming nested struct type, generalize based on type store lookup later
+                    structValue.{{ field_name | camel }} = {{ field_ref.0 | fully_qualified_type_name }}.readFrom(reader);
+                    {%- endif -%}
+                    break;
+                {%- endfor %}
+                default:
+                    reader.skipValue(); // Skip unknown fields
+            }
+        }
+        reader.stepOut();
+        return structValue as {{ model.name | upper_camel }}; // Type assertion
+        {%- elif model.code_gen_type.sequence is defined %}
+        if (reader.type() !== ion.IonTypes.LIST) {
+            throw new Error(`Expected List for {{ model.name | upper_camel }}, found: ${ion.IonTypes[reader.type()]}`);
+        }
+        const result: {{ model.name | upper_camel }} = [];
+        reader.stepIn();
+        while (reader.next() !== ion.IonTypes.NONE) {
+            result.push({{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}.readFrom(reader));
+        }
+        reader.stepOut();
+        return result;
+        {%- elif model.code_gen_type.scalar is defined %}
+        // Handle scalar type reading based on the specific scalar type
+        return reader.value() as {{ model.name | upper_camel }};
+        {%- else %}
+        return reader.value() as any;
+        {%- endif %}
+    }
+
+    /**
+     * Writes the given {{ model.name | upper_camel }} to the provided IonWriter.
+     * @param writer The IonWriter to write to.
+     * @param value The {{ model.name | upper_camel }} to write.
+     */
+    export function writeTo(writer: ion.IonWriter, value: {{ model.name | upper_camel }}): void {
+        {%- if model.code_gen_type.structure is defined %}
+        writer.stepIn(ion.IonTypes.STRUCT);
+        {%- for field_name, field_ref in model.code_gen_type.structure.fields %}
+        writer.writeFieldName('{{ field_name | camel }}');
+        {%- set field_type_name = field_ref.0 | fully_qualified_type_name %}
+        {%- if field_type_name == "string" %}
+        writer.writeString(value.{{ field_name | camel }});
+        {%- elif field_type_name == "number" %}
+        writer.writeInt(value.{{ field_name | camel }});
+        {%- elif field_type_name == "boolean" %}
+        writer.writeBool(value.{{ field_name | camel }});
+        {%- elif field_type_name == "number[]" %} // Assuming number[] represents list of numbers for now
+        writer.stepIn(ion.IonTypes.LIST);
+        for (const element of value.{{ field_name | camel }}) {
+            writer.writeInt(element);
+        }
+        writer.stepOut();
+        {%- else -%}
+        // Assuming nested struct type, generalize based on type store lookup later
+        {{ field_ref.0 | fully_qualified_type_name }}.writeTo(writer, value.{{ field_name | camel }});
+        {%- endif -%}
+        {%- endfor %}
+        writer.stepOut();
+        {%- elif model.code_gen_type.sequence is defined %}
+        writer.stepIn(ion.IonTypes.LIST);
+        for (const element of value) {
+            {{ model.code_gen_type.sequence.element_type | fully_qualified_type_name }}.writeTo(writer, element);
+        }
+        writer.stepOut();
+        {%- elif model.code_gen_type.scalar is defined %}
+        // Handle scalar type writing based on the specific scalar type
+        writer.writeValue(value);
+        {%- else %}
+        writer.writeValue(value);
+        {%- endif %}
+    }
+}
+
+{%- for nested_type in model.nested_types %}
+// Generation of nested types (e.g., interfaces and namespaces)
+<%- include!("nested_type.templ") %> <%- render_context = context.clone() + {"model": nested_type, "namespace": namespace_vec}  %>
+{%- endfor %}
+
+{%- if namespace_vec|length > 0 %}
+} // end module {{ namespace_vec.0 }}
+{%- endif %}
